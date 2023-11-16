@@ -1,11 +1,11 @@
 nume legatura: proiect
 dimensiune: 16926284
 identificatorul utilizatorului: 1000
-timpul ultimei modificari: 12.11.2023
+timpul ultimei modificari: 16.11.2023
 contorul de legaturi: 1
-drepturi de acces user: RWX------
- drepturi de accesgrup: ------RWX
- drepturi de acces altii: ------R-X
+drepturi de acces user: RWX
+ drepturi de accesgrup: RWX
+ drepturi de acces altii: R-X
 
 nume fisier: imagine.bmp
 inaltime: 1280
@@ -14,31 +14,64 @@ dimensiune: 7372938
 identificatorul utilizatorului: 1000
 timpul ultimei modificari: 11.11.2023
 contorul de legaturi: 1
-drepturi de acces user: RW-------
- drepturi de accesgrup: ------RW-
- drepturi de acces altii: ------R--
+drepturi de acces user: RW-
+ drepturi de accesgrup: RW-
+ drepturi de acces altii: R--
+
+nume director: FOLDER3
+identificatorul utilizatorului: 1000
+drepturi de acces user: RW-
+ drepturi de accesgrup: RW-
+ drepturi de acces altii: R--
 
 nume legatura: statistica.txt
 dimensiune: 1814062445
 identificatorul utilizatorului: 1000
-timpul ultimei modificari: 12.11.2023
+timpul ultimei modificari: 16.11.2023
 contorul de legaturi: 1
-drepturi de acces user: RW-------
- drepturi de accesgrup: ---------
- drepturi de acces altii: ---------
+drepturi de acces user: RW-
+ drepturi de accesgrup: ---
+ drepturi de acces altii: ---
 
 nume director: .vscode
 identificatorul utilizatorului: 1000
-drepturi de acces user: RWX------
- drepturi de accesgrup: ------RWX
- drepturi de acces altii: ------R-X
+drepturi de acces user: RW-
+ drepturi de accesgrup: ---
+ drepturi de acces altii: ---
+
+nume director: FOLDER1
+identificatorul utilizatorului: 1000
+drepturi de acces user: RW-
+ drepturi de accesgrup: ---
+ drepturi de acces altii: ---
+
+nume legatura: cal_th.c
+dimensiune legatura: 9
+drepturi de acces user: RWX
+ drepturi de accesgrup: RWX
+ drepturi de acces altii: RWX
+
+nume legatura: text.txt
+dimensiune: 1935763556
+identificatorul utilizatorului: 1000
+timpul ultimei modificari: 16.11.2023
+contorul de legaturi: 1
+drepturi de acces user: RW-
+ drepturi de accesgrup: RW-
+ drepturi de acces altii: R--
+
+nume director: FOLDER2
+identificatorul utilizatorului: 1000
+drepturi de acces user: RW-
+ drepturi de accesgrup: RW-
+ drepturi de acces altii: R--
 
 nume legatura: proiectSO.c
 dimensiune: 1970037614
 identificatorul utilizatorului: 1000
-timpul ultimei modificari: 12.11.2023
+timpul ultimei modificari: 16.11.2023
 contorul de legaturi: 1
-drepturi de acces user: RW-------
- drepturi de accesgrup: ------RW-
- drepturi de acces altii: ------R--
+drepturi de acces user: RW-
+ drepturi de accesgrup: RW-
+ drepturi de acces altii: R--
 

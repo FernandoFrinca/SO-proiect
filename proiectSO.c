@@ -39,70 +39,16 @@ char *permisie(mode_t permis) {
     return result;
 }
 
-
-void afisare(char *nume, int inaltime, int latime,struct stat file_info, int dimensiune, char *modificare)
-{
-    printf("Nume imagine: %s \n", nume);
-    printf("inaltime: %d\nlatime: %d\ndimensiune: %d\n", inaltime, latime, dimensiune);
-    printf("identificatorul utilizatorului: %ld\n", (long)file_info.st_uid);
-    printf("timpul ultimei modificari: %s\n", modificare);
-    printf("contorul de legaturi: %ld\n", (long)file_info.st_nlink);
-    printf("drepturi de acces user: %s\n",permisie(file_info.st_mode & S_IRWXU));
-    printf("drepturi de acces grup: %s\n",permisie((file_info.st_mode & S_IRWXG) >> 3));
-    printf("drepturi de acces altii: %s\n",permisie(file_info.st_mode & S_IRWXO));
-    //printbinary((file_info.st_mode & S_IRWXO));
-}
-void scrieFisierBMP(int file_out, char *nume, int inaltime, int latime, int dimensiune, struct stat file_info,char *modificare) {
-
+void openFileDIR(char *pathname, int file_out){
+    struct stat file_info;
     char buffer[256];
     int scrie ;
-    scrie = sprintf(buffer, "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %d\n", nume, inaltime, latime, dimensiune);
-    if (write(file_out, buffer, scrie) == -1) {
-        perror("Error at writing the name on the output file");
-        exit(-1);
-    }
+    scrie = sprintf(buffer, "nume director: %s\n", pathname);
 
-    scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %ld\n", file_info.st_uid, modificare,file_info.st_nlink);
-    if (write(file_out, buffer, scrie) == -1) {
-        perror("Error at writing to the output file");
-        exit(-1);
-    }
-    scrie = sprintf(buffer,"drepturi de acces user: %s\n drepturi de accesgrup: %s\n drepturi de acces altii: %s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) >> 3),permisie(file_info.st_mode & S_IRWXO));
-    if (write(file_out, buffer, scrie) == -1) {
-        perror("Error at writing to the output file");
-        exit(-1);
-    }
+    char modification_time_str[50];
+    struct tm *modification_tm = localtime(&file_info.st_mtim.tv_sec);
+    strftime(modification_time_str, sizeof(modification_time_str), "%d.%m.%Y", modification_tm);
 
-}
-
-void scrieFisierNormal(int file_out, char *nume, int dimensiune, struct stat file_info,char *modificare) {
-
-    char buffer[256];
-    int scrie ;
-    scrie = sprintf(buffer, "nume legatura: %s\ndimensiune: %d\n", nume, dimensiune);
-    if (write(file_out, buffer, scrie) == -1) {
-        perror("Error at writing the name on the output file");
-        exit(-1);
-    }
-
-    scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %ld\n", file_info.st_uid, modificare,file_info.st_nlink);
-    if (write(file_out, buffer, scrie) == -1) {
-        perror("Error at writing to the output file");
-        exit(-1);
-    }
-    scrie = sprintf(buffer,"drepturi de acces user: %s\n drepturi de accesgrup: %s\n drepturi de acces altii: %s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) >> 3),permisie(file_info.st_mode & S_IRWXO));
-    if (write(file_out, buffer, scrie) == -1) {
-        perror("Error at writing to the output file");
-        exit(-1);
-    }
-
-}
-
-void scrieDirector(int file_out, char *nume,struct stat file_info) {
-
-    char buffer[256];
-    int scrie ;
-    scrie = sprintf(buffer, "nume director: %s\n", nume);
     if (write(file_out, buffer, scrie) == -1) {
         perror("Error at writing the name on the output file");
         exit(-1);
@@ -113,15 +59,47 @@ void scrieDirector(int file_out, char *nume,struct stat file_info) {
         perror("Error at writing to the output file");
         exit(-1);
     }
-    scrie = sprintf(buffer,"drepturi de acces user: %s\n drepturi de accesgrup: %s\n drepturi de acces altii: %s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) >> 3),permisie(file_info.st_mode & S_IRWXO));
+    scrie = sprintf(buffer,"drepturi de acces user: %.3s\n drepturi de accesgrup: %.3s\n drepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
     if (write(file_out, buffer, scrie) == -1) {
         perror("Error at writing to the output file");
         exit(-1);
     }
-
 }
 
-void openFile(char *pathname, int open_file_out,int type){
+void openFileLINK(char *pathname, int file_out){
+    struct stat file_info;
+    char buffer[256];
+    int scrie ;
+
+    if (lstat(pathname, &file_info) == -1) {
+        perror("Eroare obtinere informatii despre fisier");
+        exit(-1);
+    }
+
+    scrie = sprintf(buffer, "nume legatura: %s\n", pathname);
+    char modification_time_str[50];
+    struct tm *modification_tm = localtime(&file_info.st_mtim.tv_sec);
+    strftime(modification_time_str, sizeof(modification_time_str), "%d.%m.%Y", modification_tm);
+
+    if (write(file_out, buffer, scrie) == -1) {
+        perror("Error at writing the name on the output file");
+        exit(-1);
+    }
+
+    scrie = sprintf(buffer, "dimensiune legatura: %ld\n", file_info.st_size);
+    if (write(file_out, buffer, scrie) == -1) {
+        perror("Error at writing to the output file");
+        exit(-1);
+    }
+    scrie = sprintf(buffer,"drepturi de acces user: %.3s\n drepturi de accesgrup: %.3s\n drepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
+    if (write(file_out, buffer, scrie) == -1) {
+        perror("Error at writing to the output file");
+        exit(-1);
+    }
+}
+
+void openFile(char *pathname, int file_out){
+    
     int flags_in = O_RDONLY;
     mode_t mode_in = S_IRUSR | S_IRGRP | S_IROTH; 
     int open_file_in = open(pathname, flags_in, mode_in);
@@ -129,6 +107,13 @@ void openFile(char *pathname, int open_file_out,int type){
     int height; 
     int width;
     int size;
+    int type = 0;
+    char buffer[256];
+    int scrie ;
+
+    if (strcmp(pathname+ strlen(pathname) - 4, ".bmp") == 0) {
+        type = 1;
+    } 
 
     if (open_file_in < 0) {
         perror("Eroare la deschiderea fisierului");
@@ -140,7 +125,7 @@ void openFile(char *pathname, int open_file_out,int type){
         perror("Eroare cursor dimensiune \n");
     }
 
-    if ((read(open_file_in, &size, 4) < 0) && type!=2) {
+    if (read(open_file_in, &size, 4) < 0) {
         perror("Eroare dimensiune");
     }
 
@@ -148,7 +133,7 @@ void openFile(char *pathname, int open_file_out,int type){
         perror("Eroare cursor latime \n");
     }
 
-    if ((read(open_file_in, &width, 4) < 0) && type!=2) {
+    if ((read(open_file_in, &width, 4) < 0) && type==1) {
         perror("Eroare latime");
     }
 
@@ -156,7 +141,7 @@ void openFile(char *pathname, int open_file_out,int type){
         perror("Eroare cursor inaltime \n");
     }
 
-    if ((read(open_file_in, &height, 4) < 0) && type!=2) {
+    if ((read(open_file_in, &height, 4) < 0) && type==1) {
         perror("Eroare inalime");
     }
 
@@ -170,43 +155,53 @@ void openFile(char *pathname, int open_file_out,int type){
     struct tm *modification_tm = localtime(&file_info.st_mtim.tv_sec);
     strftime(modification_time_str, sizeof(modification_time_str), "%d.%m.%Y", modification_tm);
 
-    //afisare(pathname,height,width,file_info,size,modification_time_str);
-    if(type == 1)
-        scrieFisierBMP(open_file_out,pathname,height,width,size,file_info,modification_time_str);
-    else if(type == 0)
-        scrieFisierNormal(open_file_out,pathname,size,file_info,modification_time_str);
-    else if(type == 2)
-        scrieDirector(open_file_out,pathname,file_info);
-    
-    if (close(open_file_in) < 0) {
-        perror("Eroare la inchidere");
-        exit(EXIT_FAILURE);
+    if(type == 1){
+        scrie = sprintf(buffer, "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %d\n", pathname, height, width, size);
+        if (write(file_out, buffer, scrie) == -1) {
+        perror("Error at writing the name on the output file");
+        exit(-1);
+        }
     }
+    else{
+        scrie = sprintf(buffer, "nume legatura: %s\ndimensiune: %d\n", pathname, size);
+        if (write(file_out, buffer, scrie) == -1) {
+            perror("Error at writing the name on the output file");
+            exit(-1);
+        }
+    }
+
+    scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %ld\n", file_info.st_uid, modification_time_str,file_info.st_nlink);
+    if (write(file_out, buffer, scrie) == -1) {
+        perror("Error at writing to the output file");
+        exit(-1);
+    }
+    scrie = sprintf(buffer,"drepturi de acces user: %.3s\n drepturi de accesgrup: %.3s\n drepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
+    if (write(file_out, buffer, scrie) == -1) {
+        perror("Error at writing to the output file");
+        exit(-1);
+    }
+
 }
 
-void afisareFisiere(char *director, int open_file_out) {
+void getFiles(char *director, int file_out){
     DIR *dir;
-    struct dirent *intrare;
-    int type; 
+    struct dirent *dir_index;
     dir = opendir(director);
     if (dir == NULL) {
         perror("Eroare la deschiderea directorului");
         exit(-1);
     }
-    while ((intrare = readdir(dir)) != NULL) {
-        if (strcmp(intrare->d_name, ".") != 0 && strcmp(intrare->d_name, "..") != 0) {
-            if (intrare->d_type == DT_DIR) {
-                openFile(intrare->d_name,open_file_out,2);
-            } else {
-                
-                if (strcmp(intrare->d_name + strlen(intrare->d_name) - 4, ".bmp") == 0) {
-                    type = 1;
-                } else {
-                    type = 0;
-                }
-
-            openFile(intrare->d_name,open_file_out,type);
+    while ((dir_index = readdir(dir)) != NULL) {
+        if (strcmp(dir_index->d_name, ".") != 0 && strcmp(dir_index->d_name, "..") != 0) {
+            if (dir_index->d_type == DT_DIR) {
+                openFileDIR(dir_index->d_name,file_out);
+            } 
+            if (dir_index->d_type == DT_LNK) {
+                openFileLINK(dir_index->d_name,file_out);
             }
+           if (dir_index->d_type == DT_REG) {
+                openFile(dir_index->d_name,file_out);
+            }  
         }
     }
 
@@ -218,24 +213,24 @@ int main(int argc, char *argv[]) {
     char *director = argv[1];
     int flags_out = O_WRONLY | O_CREAT | O_TRUNC;
     mode_t mode_out = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-    int open_file_out = open("statistica.txt",flags_out, mode_out);
+    int file_out = open("statistica.txt",flags_out, mode_out);
 
     if (argc != 2) {
         printf("Usage ./%s <fisier_intrare>\n", argv[0]);
         exit(-1);
     }
-    if (open_file_out < 0) {
+    if (file_out < 0) {
         perror("Eroare la deschiderea fisierului statistica.txt");
-        close(open_file_out);
+        close(file_out);
         exit(-1);
     } 
 
-    afisareFisiere(director,open_file_out);
+    getFiles(director,file_out);
     
 
-    if (close(open_file_out) < 0) {
+    if (close(file_out) < 0) {
         perror("Eroare la inchidere");
-        exit(EXIT_FAILURE);
+        exit(-1);
     }
 
     return 0;
