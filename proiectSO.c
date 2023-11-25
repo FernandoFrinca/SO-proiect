@@ -208,7 +208,15 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
 
     if (strcmp(fileName+ strlen(fileName) - 4, ".bmp") == 0) {
         type = 1;
-        convertToGrayscale(gray_path);
+            pid_t pid = fork();
+            if (pid == -1) {
+                printf("fork error");
+            }
+
+            if (pid == 0) { 
+                convertToGrayscale(gray_path);
+                exit(0); 
+            }
     } 
 
     if (open_file_in < 0) {
@@ -291,7 +299,7 @@ void getFiles(char *director_in, char *director_out){
             if (strcmp(dir_index->d_name, ".") != 0 && strcmp(dir_index->d_name, "..") != 0) {
                 pid = fork();
                 if (pid == -1) {
-                    perror("fork failed");
+                    printf("fork error");
                     continue;
                 }
 
