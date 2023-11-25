@@ -12,70 +12,61 @@
 #define BUFFER_SIZE 256
 #define BMP_HEADER_SIZE 54
 
-void convertToGrayscale(char *bmpPath,char *outputPath) 
+void convertToGrayscale(char *bmpPath) 
 {
-    int bmpFile = 0, bmpFileOut = 0;
-    int flags_out = O_RDWR | O_CREAT | O_TRUNC;
-    mode_t mode_out = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-    int width = 0, height = 0, pixelDataOffset = 0;
-    char copia[54];
+    int bmpFile = 0;
+    int width = 0, height = 0, pixelDataOffset = 0, i = 0;
 
-    bmpFile = open(bmpPath, O_RDONLY);
-    if (bmpFile == -1) {
-        printf("eroare la deschidere bmp");
+    if ((bmpFile = open(bmpPath, O_RDWR)) == -1) {
+        printf("Error BMP gray");
         exit(-1);
     }
 
-    bmpFileOut = open(outputPath, flags_out, mode_out);
-    if (bmpFileOut == -1) {
-        printf("eroare la deschidere bmp_out");
-        exit(-1);
-    }
+    lseek(bmpFile, 10, SEEK_SET);
+    read(bmpFile, &pixelDataOffset, sizeof(pixelDataOffset));
 
-    read(bmpFile, copia, sizeof(copia));
+    lseek(bmpFile, 18, SEEK_SET);
+    read(bmpFile, &width, sizeof(width));
+    
+    lseek(bmpFile, 22, SEEK_SET);
+    read(bmpFile, &height, sizeof(height));
 
-    memcpy(&width, &copia[18], sizeof(width));
-    memcpy(&height, &copia[22], sizeof(height));
-    memcpy(&pixelDataOffset, &copia[10], sizeof(pixelDataOffset));
-
-    write(bmpFileOut, copia, sizeof(copia));
-
+    
     lseek(bmpFile, pixelDataOffset, SEEK_SET);
-    lseek(bmpFileOut, pixelDataOffset, SEEK_SET);
 
-    for (int i = 0; i < height * width; i++) {
-         char pixel[3];
-         char gray;
+  
+    for (i = 0; i < height * width; i++) 
+    {
+            unsigned char pixel[3];
+            unsigned char gray = 0;
 
-        read(bmpFile, pixel, sizeof(pixel));
-        gray = (char)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
-        pixel[0] = pixel[1] = pixel[2] = gray;
-
-        write(bmpFileOut, pixel, sizeof(pixel)); 
+            read(bmpFile, pixel, sizeof(pixel));
+            gray = (unsigned char)(0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0]);
+            pixel[0] = pixel[1] = pixel[2] = gray;
+            lseek(bmpFile, -3, SEEK_CUR); 
+            write(bmpFile, pixel, sizeof(pixel)); 
     }
 
-    if (close(bmpFile) == -1) {
-        printf("eroare la inchidere bmp");
-        exit(-1);
-    }
-    if (close(bmpFileOut) == -1) {
-        printf("eroare la deschidere bmp");
+    if(close(bmpFile) == -1)
+    {
+        printf("Error closing bmp file\n");
         exit(-1);
     }
 }
-char* createNameOutputFile(char *string){
-    char delimiters[] = ".";
-    char *p = strtok(string, delimiters);
+char* createNameOutputFile(const char *string) {
+    static char outputFileName[256];
+    strncpy(outputFileName, string, sizeof(outputFileName) - 1);
+    outputFileName[sizeof(outputFileName) - 1] = '\0';
+
+    char *p = strtok(outputFileName, ".");
+    if (p == NULL) {
+        return outputFileName; 
+    }
     return p;
 }
 
-
 char *permisie(mode_t permis) {
-    char *result = (char *)malloc(10); 
-    if (result == NULL) {
-        printf("eroare malloc");
-        exit(-1);
-    }
+    static char result[10];
 
     if (permis & S_IRUSR) result[0] = 'R';else result[0] = '-';
     if (permis & S_IWUSR) result[1] = 'W';else result[1] = '-';
@@ -112,12 +103,12 @@ void openFileDIR(char *DirName, char *dir_out){
         exit(-1);
     } 
 
+    if (lstat(DirName, &file_info) == -1) {
+        printf("Eroare obtinere informatii despre fisier");
+        exit(-1);
+    }
+
     scrie = sprintf(buffer, "nume director: %s\n", DirName);
-
-    char modification_time_str[50];
-    struct tm *modification_tm = localtime(&file_info.st_mtim.tv_sec);
-    strftime(modification_time_str, sizeof(modification_time_str), "%d.%m.%Y", modification_tm);
-
     if (write(file_out, buffer, scrie) == -1) {
         printf("Error at writing the name on the output file");
         exit(-1);
@@ -129,7 +120,8 @@ void openFileDIR(char *DirName, char *dir_out){
         exit(-1);
     }
 
-    scrie = sprintf(buffer,"drepturi de acces user: %.3s\n drepturi de accesgrup: %.3s\n drepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
+    
+    scrie = sprintf(buffer,"drepturi de acces user: %.3s\ndrepturi de accesgrup: %.3s\ndrepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
     if (write(file_out, buffer, scrie) == -1) {
         printf("Error at writing to the output file");
         exit(-1);
@@ -138,6 +130,7 @@ void openFileDIR(char *DirName, char *dir_out){
     if(close(file_out)<0){
         exit(0);
     }
+    close(file_out);
 }
 
 void openFileLINK(char *LinkName, char *dir_out){
@@ -166,10 +159,6 @@ void openFileLINK(char *LinkName, char *dir_out){
 
     scrie = sprintf(buffer, "nume legatura: %s\n", LinkName);
 
-    char modification_time_str[50];
-    struct tm *modification_tm = localtime(&file_info.st_mtim.tv_sec);
-     strftime(modification_time_str, sizeof(modification_time_str), "%d.%m.%Y", modification_tm);
-
     if (write(file_out, buffer, scrie) == -1) {
         printf("Error at writing the name on the output file");
         exit(-1);
@@ -180,11 +169,13 @@ void openFileLINK(char *LinkName, char *dir_out){
         printf("Error at writing to the output file");
         exit(-1);
     }
-    scrie = sprintf(buffer,"drepturi de acces user: %.3s\n drepturi de accesgrup: %.3s\n drepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
+    scrie = sprintf(buffer,"drepturi de acces user: %.3s\ndrepturi de accesgrup: %.3s\ndrepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
     if (write(file_out, buffer, scrie) == -1) {
         printf("Error at writing to the output file");
         exit(-1);
     }
+    
+    close(file_out);
 }
 
 void openFile(char *fileName, char *dir_out, char *dir_in){
@@ -194,23 +185,18 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
     int open_file_in = open(fileName, flags_in, mode_in);
     int flags_out = O_WRONLY | O_CREAT | O_TRUNC;
     mode_t mode_out = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+    
     struct stat file_info;
     int height, width, size, type =0;
     char buffer[256];
     int scrie;
-    char modification_time_str[50];
+
     char output_path[256];
     char aux_fileName[256];
     char gray_path[512];
-    char gray_path_out[512];
-    struct tm *modification_tm = localtime(&file_info.st_mtim.tv_sec);
-
-    strftime(modification_time_str, sizeof(modification_time_str), "%d.%m.%Y", modification_tm);
-
-
+    
     strcpy(aux_fileName,fileName);
     sprintf(gray_path, "%s/%s", dir_in, aux_fileName);
-    sprintf(gray_path_out, "%s/%s", dir_out, aux_fileName);
     sprintf(output_path, "%s/%s_statistica", dir_out, createNameOutputFile(aux_fileName));
     
     int file_out = open(output_path,flags_out, mode_out);
@@ -221,42 +207,9 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
     } 
 
     if (strcmp(fileName+ strlen(fileName) - 4, ".bmp") == 0) {
-         int pipefd[2];
-        if (pipe(pipefd) == -1) { 
-            printf("pipe failed");
-            exit(EXIT_FAILURE);
-        }
         type = 1;
-        pid_t pid = fork();
-        if (pid == -1) {
-            printf("Eroare la fork");
-            exit(-1);
-        }
-        if (pid == 0) {
-            close(pipefd[0]); 
-            convertToGrayscale(gray_path, gray_path_out);
-            int linii = 0;
-            write(pipefd[1], &linii, sizeof(linii)); 
-            close(pipefd[1]);
-            close(file_out);
-            exit(0);
-        }else{
-            close(pipefd[1]); 
-
-            int linii;
-            read(pipefd[0], &linii, sizeof(linii)); 
-            close(pipefd[0]);
-
-            int status;
-            waitpid(pid, &status, 0); 
-
-            if (WIFEXITED(status)) {
-                printf("S-a incheiat procesul cu pid-ul %d si codul %d. Numărul de linii scrise: %d\n", pid, WEXITSTATUS(status), linii);
-        }
-        }
-        wait(NULL);
+        convertToGrayscale(gray_path);
     } 
-
 
     if (open_file_in < 0) {
         printf("Eroare la deschiderea fisierului");
@@ -302,56 +255,79 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
         }
     }
     else{
-        scrie = sprintf(buffer, "nume legatura: %s\ndimensiune: %d\n", fileName, size);
+        scrie = sprintf(buffer, "nume fisier: %s\ndimensiune: %d\n", fileName, size);
         if (write(file_out, buffer, scrie) == -1) {
             printf("Error at writing the name on the output file");
             exit(-1);
         }
     }
 
-    scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %ld\n", file_info.st_uid, modification_time_str,file_info.st_nlink);
+    scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %scontorul de legaturi: %ld\n", file_info.st_uid, ctime(&file_info.st_mtime),file_info.st_nlink);
     if (write(file_out, buffer, scrie) == -1) {
         printf("Error at writing to the output file");
         exit(-1);
     }
-    scrie = sprintf(buffer,"drepturi de acces user: %.3s\n drepturi de accesgrup: %.3s\n drepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
+    scrie = sprintf(buffer,"drepturi de acces user: %.3s\ndrepturi de accesgrup: %.3s\ndrepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
     if (write(file_out, buffer, scrie) == -1) {
         printf("Error at writing to the output file");
         exit(-1);
     }
-
+    close(open_file_in);
+    close(file_out);
 }
 
 void getFiles(char *director_in, char *director_out){
     DIR *dir;
     struct dirent *dir_index;
+    int nr_linii;
+    pid_t pid ;
     dir = opendir(director_in);
     if (dir == NULL) {
         printf("Eroare la deschiderea directorului");
         exit(-1);
     }
     while ((dir_index = readdir(dir)) != NULL) {
-        if (strcmp(dir_index->d_name, ".") != 0 && strcmp(dir_index->d_name, "..") != 0) {
-            pid_t pid = fork();
-            if (pid == -1) {
-                printf("eroare fork");
-                exit(-1);
-            } else if (pid == 0) { 
-                if (dir_index->d_type == DT_DIR) {
-                    openFileDIR(dir_index->d_name,director_out);
-                } 
-                if (dir_index->d_type == DT_LNK) {
-                    openFileLINK(dir_index->d_name,director_out);
+      
+            if (strcmp(dir_index->d_name, ".") != 0 && strcmp(dir_index->d_name, "..") != 0) {
+                pid = fork();
+                if (pid == -1) {
+                    perror("fork failed");
+                    continue;
                 }
-                if (dir_index->d_type == DT_REG) {
-                    openFile(dir_index->d_name,director_out,director_in);
-                }  
-            exit(0);
-            }
-        wait(NULL); 
+
+                if (pid == 0) { 
+                    if (dir_index->d_type == DT_DIR) {
+                    nr_linii = 5;
+                    //printf("sg test: ajunge1\n");
+                    openFileDIR(dir_index->d_name,director_out);
+                    } 
+                    if (dir_index->d_type == DT_LNK) {
+                        nr_linii = 8;
+                        //printf("sg test: ajunge1\n");
+                        openFileLINK(dir_index->d_name,director_out);
+                    }
+                    if (dir_index->d_type == DT_REG) {
+                        if(strstr(dir_index->d_name, ".bmp") != NULL)
+                        {
+                            nr_linii = 10;
+                        }
+                        else{
+                            nr_linii = 8;
+                        }
+                        //printf("sg test: ajunge1\n");
+                        openFile(dir_index->d_name,director_out,director_in);
+                    }  
+                    exit(nr_linii);
+                } 
+            }  
+    }
+    int status;
+    while ((pid = wait(&status)) > 0) {
+        if (WIFEXITED(status)) {
+            int line_count = WEXITSTATUS(status);
+            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", pid, line_count);
         }
     }
-
     closedir(dir);
 }
 
