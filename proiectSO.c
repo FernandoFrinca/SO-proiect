@@ -12,6 +12,21 @@
 #define BUFFER_SIZE 256
 #define BMP_HEADER_SIZE 54
 
+int isAlfanumeric(char c){
+    if(c >= 'A' && c <= 'Z'){
+        return 1;
+    }
+    else if(c >= 'a' && c <= 'z'){
+        return 1;
+    }
+    else if(c >= '0' && c <= '9'){
+        return 1;
+    }
+    else{
+        return 0;
+    }
+}
+
 void convertToGrayscale(char *bmpPath) 
 {
     int bmpFile = 0;
@@ -178,7 +193,7 @@ void openFileLINK(char *LinkName, char *dir_out){
     close(file_out);
 }
 
-void openFile(char *fileName, char *dir_out, char *dir_in){
+void openFile(char *fileName, char *dir_out, char *dir_in, char caracter){
     
     int flags_in = O_RDONLY;
     mode_t mode_in = S_IRUSR | S_IRGRP | S_IROTH; 
@@ -194,6 +209,8 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
     char output_path[256];
     char aux_fileName[256];
     char gray_path[512];
+
+    int fd[2];
     
     strcpy(aux_fileName,fileName);
     sprintf(gray_path, "%s/%s", dir_in, aux_fileName);
@@ -218,6 +235,76 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
                 exit(0); 
             }
     } 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if(pipe(fd) == - 1)
+    {
+        printf("Error pipe\n");
+        exit(-1);
+    }
+
+    pid_t pid = fork();
+    if(pid == 0){
+       //close(fd[1]);
+
+      
+       
+       int read_file_text;
+       char read_buffer[256];
+       int count = 0;
+       if((read_file_text = open(output_path, O_RDONLY)) == -1)
+        {
+            printf("Error open input file\n");
+            exit(-1);
+        }
+        ssize_t bytesRead;
+        while ((bytesRead = read(read_file_text, read_buffer, sizeof(read_buffer) - 1)) > 0) {
+            read_buffer[bytesRead] = '\0'; 
+        //printf("%s\n", read_buffer);
+        printf("\nruleare script\n");
+        count = execlp("bash", "bash", "script.sh", caracter, NULL);
+        printf("\nruleare script terminata nr linii: %d\n",count);
+    }
+
+
+        exit(-1);
+    }
+    else if(pid < 0){
+        printf("Eroare la pipe\n");
+        exit(-1);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 
     if (open_file_in < 0) {
         printf("Eroare la deschiderea fisierului");
@@ -284,7 +371,7 @@ void openFile(char *fileName, char *dir_out, char *dir_in){
     close(file_out);
 }
 
-void getFiles(char *director_in, char *director_out){
+void getFiles(char *director_in, char *director_out, char caracter){
     DIR *dir;
     struct dirent *dir_index;
     int nr_linii;
@@ -306,12 +393,12 @@ void getFiles(char *director_in, char *director_out){
                 if (pid == 0) { 
                     if (dir_index->d_type == DT_DIR) {
                     nr_linii = 5;
-                    //printf("sg test: ajunge1\n");
+               
                     openFileDIR(dir_index->d_name,director_out);
                     } 
                     if (dir_index->d_type == DT_LNK) {
                         nr_linii = 8;
-                        //printf("sg test: ajunge1\n");
+                      
                         openFileLINK(dir_index->d_name,director_out);
                     }
                     if (dir_index->d_type == DT_REG) {
@@ -322,8 +409,8 @@ void getFiles(char *director_in, char *director_out){
                         else{
                             nr_linii = 8;
                         }
-                        //printf("sg test: ajunge1\n");
-                        openFile(dir_index->d_name,director_out,director_in);
+                   
+                        openFile(dir_index->d_name,director_out,director_in,caracter);
                     }  
                     exit(nr_linii);
                 } 
@@ -343,13 +430,27 @@ int main(int argc, char *argv[]) {
 
     char *director_in = argv[1];
     char *director_out = argv[2];
+    char caracter;
 
-    if (argc != 3) {
-        printf("Eroare la argumente");
+     if (argc != 4) {
+        printf("Eroare la argumente\n");
+        exit(-1);
+     }
+
+    if(strlen(argv[3])>1){
+        printf("Trebuia introdus doar un singur caracter <alfanumeric>\n");
         exit(-1);
     }
+    else{
+        caracter = argv[3][0];
+        if(isAlfanumeric(caracter) != 1){
+            printf("Trebuia introdus un caracter alfanumeric\n");
+            exit(-1);
+        }
+       
+    }
 
-    getFiles(director_in,director_out);
+    getFiles(director_in,director_out,caracter);
     
     return 0;
 }
