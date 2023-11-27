@@ -420,7 +420,7 @@ void getFiles(char *director_in, char *director_out, char caracter){
     while ((pid = wait(&status)) > 0) {
         if (WIFEXITED(status)) {
             int line_count = WEXITSTATUS(status);
-            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", pid, line_count);
+            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", pid, nr_linii);
         }
     }
     closedir(dir);
