@@ -11,7 +11,10 @@
 
 #define BUFFER_SIZE 256
 #define BMP_HEADER_SIZE 54
+#define BUFFER_PIPE 1024
 
+
+//functie pentru verificarea unui caracter daca este alfanumeric
 int isAlfanumeric(char c){
     if(c >= 'A' && c <= 'Z'){
         return 1;
@@ -27,6 +30,7 @@ int isAlfanumeric(char c){
     }
 }
 
+//functie care converteste imagine ain tonuri de gri
 void convertToGrayscale(char *bmpPath) 
 {
     int bmpFile = 0;
@@ -40,6 +44,7 @@ void convertToGrayscale(char *bmpPath)
     lseek(bmpFile, 10, SEEK_SET);
     read(bmpFile, &pixelDataOffset, sizeof(pixelDataOffset));
 
+    //se extrage inaltimea si latimea pentru a putea parcurge toata imaginea
     lseek(bmpFile, 18, SEEK_SET);
     read(bmpFile, &width, sizeof(width));
     
@@ -49,7 +54,7 @@ void convertToGrayscale(char *bmpPath)
     
     lseek(bmpFile, pixelDataOffset, SEEK_SET);
 
-  
+    //fiecare pixel este parcurs si modificat dupa formula data dupa care este scris inapoi 
     for (i = 0; i < height * width; i++) 
     {
             unsigned char pixel[3];
@@ -68,6 +73,8 @@ void convertToGrayscale(char *bmpPath)
         exit(-1);
     }
 }
+
+//functie pentru a genera calea de output, extrage din text.txt doar text sa putem adauga _statistica.txt  
 char* createNameOutputFile(const char *string) {
     static char outputFileName[256];
     strncpy(outputFileName, string, sizeof(outputFileName) - 1);
@@ -80,6 +87,8 @@ char* createNameOutputFile(const char *string) {
     return p;
 }
 
+
+//functie pentru a afisa permisiile grup,owner,other fisierului, 
 char *permisie(mode_t permis) {
     static char result[10];
 
@@ -97,6 +106,8 @@ char *permisie(mode_t permis) {
     return result;
 }
 
+
+//functie pentru a extrage si printa in fisierul de output datele cerute despre directoare
 void openFileDIR(char *DirName, char *dir_out){
 
     struct stat file_info;
@@ -107,6 +118,7 @@ void openFileDIR(char *DirName, char *dir_out){
     char output_path[256];
     char aux_DirName[256];
 
+    //GENERAREA PATH ULUI DE OUTPUT
     strcpy(aux_DirName,DirName);
     sprintf(output_path, "%s/%s_statistica", dir_out, createNameOutputFile(aux_DirName));
     
@@ -147,7 +159,7 @@ void openFileDIR(char *DirName, char *dir_out){
     }
     close(file_out);
 }
-
+//functie pentru a extrage si printa in fisierul de output datele cerute despre legaturile simbolice
 void openFileLINK(char *LinkName, char *dir_out){
     struct stat file_info;
     char buffer[BUFFER_SIZE];
@@ -157,6 +169,7 @@ void openFileLINK(char *LinkName, char *dir_out){
     char output_path[256];
     char aux_LinkName[256];
 
+    //GENERAREA PATH ULUI DE OUTPUT
     strcpy(aux_LinkName,LinkName);
     sprintf(output_path, "%s/%s_statistica", dir_out, createNameOutputFile(aux_LinkName));
     
@@ -192,9 +205,10 @@ void openFileLINK(char *LinkName, char *dir_out){
     
     close(file_out);
 }
-
-void openFile(char *fileName, char *dir_out, char *dir_in, char caracter){
-    
+//functie pentru a extrage si printa in fisierul de output datele cerute despre fisiere, 
+// daca sunt BMP se executa un anumit set de instructiunin intr-un proces copil
+// daca sunt fisiere normale se executa alt set de instrunctiuni intr-un proces copil
+void openFile(char *fileName, char *dir_out, char *dir_in, char caracter) {
     int flags_in = O_RDONLY;
     mode_t mode_in = S_IRUSR | S_IRGRP | S_IROTH; 
     int open_file_in = open(fileName, flags_in, mode_in);
@@ -208,12 +222,15 @@ void openFile(char *fileName, char *dir_out, char *dir_in, char caracter){
 
     char output_path[256];
     char aux_fileName[256];
-    char gray_path[512];
+    char gray_path[300];
+    char script_path[300];
 
-    int fd[2];
+    pid_t pid_BMP;
+    int fd[2]; // pentru capetele pipe-ului
     
     strcpy(aux_fileName,fileName);
     sprintf(gray_path, "%s/%s", dir_in, aux_fileName);
+    sprintf(script_path, "%s/%s", dir_in, "script.sh");
     sprintf(output_path, "%s/%s_statistica", dir_out, createNameOutputFile(aux_fileName));
     
     int file_out = open(output_path,flags_out, mode_out);
@@ -223,208 +240,188 @@ void openFile(char *fileName, char *dir_out, char *dir_in, char caracter){
         exit(-1);
     } 
 
-    if (strcmp(fileName+ strlen(fileName) - 4, ".bmp") == 0) {
+    // Verifică dacă fișierul este o imagine BMP
+    if (strcmp(fileName + strlen(fileName) - 4, ".bmp") == 0){
         type = 1;
-            pid_t pid = fork();
-            if (pid == -1) {
-                printf("fork error");
+        pid_BMP = fork();
+        if (pid_BMP == -1) {
+            printf("fork error");
+            exit(-1);
+        }
+
+        if (pid_BMP == 0) { 
+            convertToGrayscale(gray_path);
+            exit(0);
+        }
+        int status;
+        waitpid(pid_BMP, &status, 0);
+    }
+        // Deschidem pipe ul pentru fisiere NON-BMP
+        if (pipe(fd) == -1) {
+            perror("pipe error");
+            exit(EXIT_FAILURE);
+        }
+
+        // Proces fiu pentru scrierea statisticilor atat BMP cat si fisiere normale
+        pid_t pid_stat = fork();
+        if (pid_stat == 0) {
+            if (open_file_in < 0) {
+                printf("Eroare la deschiderea fisierului");
+                close(open_file_in);
+                exit(-1);
             }
 
-            if (pid == 0) { 
-                convertToGrayscale(gray_path);
-                exit(0); 
+            if (lseek(open_file_in, 2, SEEK_SET) < 0) {
+                printf("Eroare cursor dimensiune \n");
             }
-    } 
 
+            if (read(open_file_in, &size, 4) < 0) {
+                printf("Eroare dimensiune");
+            }
 
+            if (lseek(open_file_in, 18, SEEK_SET) < 0) {
+                printf("Eroare cursor latime \n");
+            }
 
+            if ((read(open_file_in, &width, 4) < 0) && type==1) {
+                printf("Eroare latime");
+            }
 
+            if (lseek(open_file_in, 22, SEEK_SET) < 0) {
+                printf("Eroare cursor inaltime \n");
+            }
 
+            if ((read(open_file_in, &height, 4) < 0) && type==1) {
+                printf("Eroare inalime");
+            }
 
+            if (fstat(open_file_in, &file_info) == -1) {
+                printf("Eroare obtinere informatii despre fisier");
+                close(open_file_in);
+                exit(-1);
+            }
+            
+            if(type == 1){
+                scrie = sprintf(buffer, "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %d\n", fileName, height, width, size);
+                if (write(file_out, buffer, scrie) == -1) {
+                printf("Error at writing the name on the output file");
+                exit(-1);
+                }
+            }
+            else{
+                scrie = sprintf(buffer, "nume fisier: %s\ndimensiune: %d\n", fileName, size);
+                if (write(file_out, buffer, scrie) == -1) {
+                    printf("Error at writing the name on the output file");
+                    exit(-1);
+                }
+            }
 
+            scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %scontorul de legaturi: %ld\n", file_info.st_uid, ctime(&file_info.st_mtime),file_info.st_nlink);
+            if (write(file_out, buffer, scrie) == -1) {
+                printf("Error at writing to the output file");
+                exit(-1);
+            }
+            scrie = sprintf(buffer,"drepturi de acces user: %.3s\ndrepturi de accesgrup: %.3s\ndrepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
+            if (write(file_out, buffer, scrie) == -1) {
+                printf("Error at writing to the output file");
+                exit(-1);
+            }
+            exit(0);
+        }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    if(pipe(fd) == - 1)
+    if(type != 1)
     {
-        printf("Error pipe\n");
-        exit(-1);
-    }
-
-    pid_t pid = fork();
-    if(pid == 0){
-       //close(fd[1]);
-
-      
-       
-       int read_file_text;
-       char read_buffer[256];
-       int count = 0;
-       if((read_file_text = open(output_path, O_RDONLY)) == -1)
-        {
-            printf("Error open input file\n");
+        // Proces fiu pentru calculul propozitiilor corecte
+        pid_t pid_count = fork();
+        if (pid_count == 0) {
+            close(fd[1]); // inchidem capatul de write
+            dup2(fd[0], STDIN_FILENO);// redirectionare iesirea standard standard din pipe
+            close(fd[0]);// inchidem capatul de read
+            char c_str[2] = {caracter, '\0'}; // aici face ca caracterul citit d ela tastatura sa fie de tip string adaugand un terminator de sir
+            execlp("bash", "bash", "script.sh", c_str, NULL); // rulam scriptul 
+            printf("execlp failed");
             exit(-1);
         }
-        ssize_t bytesRead;
-        while ((bytesRead = read(read_file_text, read_buffer, sizeof(read_buffer) - 1)) > 0) {
-            read_buffer[bytesRead] = '\0'; 
-        //printf("%s\n", read_buffer);
-        printf("\nruleare script\n");
-        count = execlp("bash", "bash", "script.sh", caracter, NULL);
-        printf("\nruleare script terminata nr linii: %d\n",count);
-    }
 
+        int status;
+        waitpid(pid_stat, &status, 0);
 
-        exit(-1);
-    }
-    else if(pid < 0){
-        printf("Eroare la pipe\n");
-        exit(-1);
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-    if (open_file_in < 0) {
-        printf("Eroare la deschiderea fisierului");
-        close(open_file_in);
-        exit(-1);
-    }
-
-    if (lseek(open_file_in, 2, SEEK_SET) < 0) {
-        printf("Eroare cursor dimensiune \n");
-    }
-
-    if (read(open_file_in, &size, 4) < 0) {
-        printf("Eroare dimensiune");
-    }
-
-    if (lseek(open_file_in, 18, SEEK_SET) < 0) {
-        printf("Eroare cursor latime \n");
-    }
-
-    if ((read(open_file_in, &width, 4) < 0) && type==1) {
-        printf("Eroare latime");
-    }
-
-    if (lseek(open_file_in, 22, SEEK_SET) < 0) {
-        printf("Eroare cursor inaltime \n");
-    }
-
-    if ((read(open_file_in, &height, 4) < 0) && type==1) {
-        printf("Eroare inalime");
-    }
-
-    if (fstat(open_file_in, &file_info) == -1) {
-        printf("Eroare obtinere informatii despre fisier");
-        close(open_file_in);
-        exit(-1);
-    }
-    
-    if(type == 1){
-        scrie = sprintf(buffer, "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %d\n", fileName, height, width, size);
-        if (write(file_out, buffer, scrie) == -1) {
-        printf("Error at writing the name on the output file");
-        exit(-1);
+        close(fd[0]); //inchidem capatul de citire al pipe-ului
+        int file_in = open(fileName, O_RDONLY);
+        char read_buf[BUFFER_PIPE];
+        ssize_t bytes_read;
+        while ((bytes_read = read(file_in, read_buf, sizeof(read_buf))) > 0) {
+            write(fd[1], read_buf, bytes_read);
         }
-    }
-    else{
-        scrie = sprintf(buffer, "nume fisier: %s\ndimensiune: %d\n", fileName, size);
-        if (write(file_out, buffer, scrie) == -1) {
-            printf("Error at writing the name on the output file");
-            exit(-1);
+        close(file_in);
+        close(fd[1]);
+
+        waitpid(pid_count, &status, 0);
+        if (WIFEXITED(status)) {
+            int num_prop = WEXITSTATUS(status);
+            printf("Au fost identificate in total %d propozitii corecte care contin caracterul %c\n", num_prop, caracter);
         }
     }
 
-    scrie = sprintf(buffer, "identificatorul utilizatorului: %d\ntimpul ultimei modificari: %scontorul de legaturi: %ld\n", file_info.st_uid, ctime(&file_info.st_mtime),file_info.st_nlink);
-    if (write(file_out, buffer, scrie) == -1) {
-        printf("Error at writing to the output file");
-        exit(-1);
-    }
-    scrie = sprintf(buffer,"drepturi de acces user: %.3s\ndrepturi de accesgrup: %.3s\ndrepturi de acces altii: %.3s\n\n",permisie(file_info.st_mode & S_IRWXU),permisie((file_info.st_mode & S_IRWXG) << 3),permisie((file_info.st_mode & S_IRWXO)<<6));
-    if (write(file_out, buffer, scrie) == -1) {
-        printf("Error at writing to the output file");
-        exit(-1);
-    }
-    close(open_file_in);
-    close(file_out);
+        close(open_file_in);
+        close(file_out);
 }
 
-void getFiles(char *director_in, char *director_out, char caracter){
+//functie pentru gestionarea tuturor tipurilor de fisiere/dir din directorul dat ca argument
+void getFiles(char *director_in, char *director_out, char caracter) {
+    int nr_linii = 0;
     DIR *dir;
     struct dirent *dir_index;
-    int nr_linii;
-    pid_t pid ;
+    pid_t pid;
+    int status;
+
     dir = opendir(director_in);
     if (dir == NULL) {
         printf("Eroare la deschiderea directorului");
         exit(-1);
     }
-    while ((dir_index = readdir(dir)) != NULL) {
-      
-            if (strcmp(dir_index->d_name, ".") != 0 && strcmp(dir_index->d_name, "..") != 0) {
-                pid = fork();
-                if (pid == -1) {
-                    printf("fork error");
-                    continue;
-                }
 
-                if (pid == 0) { 
-                    if (dir_index->d_type == DT_DIR) {
-                    nr_linii = 5;
-               
-                    openFileDIR(dir_index->d_name,director_out);
-                    } 
-                    if (dir_index->d_type == DT_LNK) {
-                        nr_linii = 8;
-                      
-                        openFileLINK(dir_index->d_name,director_out);
-                    }
-                    if (dir_index->d_type == DT_REG) {
-                        if(strstr(dir_index->d_name, ".bmp") != NULL)
+    while ((dir_index = readdir(dir)) != NULL) {
+        if (strcmp(dir_index->d_name, ".") != 0 && strcmp(dir_index->d_name, "..") != 0) {
+            pid = fork();// cate un process fiu pentru prelucrarea fiecarei intrari
+            if (pid == -1) {
+                printf("fork error");
+                continue; 
+            }
+
+            if (pid == 0) { 
+                if (dir_index->d_type == DT_DIR) {
+                    nr_linii = 5; //setare nr linii pt afisare
+                    //printf("\nintraDIR\n");
+                    openFileDIR(dir_index->d_name, director_out);
+                } else if (dir_index->d_type == DT_LNK) {
+                    nr_linii = 8;
+                    openFileLINK(dir_index->d_name, director_out);
+                } else if (dir_index->d_type == DT_REG) {
+                   if(strstr(dir_index->d_name, ".bmp") != NULL)
                         {
-                            nr_linii = 10;
+                            //printf("\nintraBMP\n");
+                            nr_linii = 0;
                         }
                         else{
+                            //printf("\nintraFILE\n");
                             nr_linii = 8;
                         }
-                   
-                        openFile(dir_index->d_name,director_out,director_in,caracter);
-                    }  
-                    exit(nr_linii);
-                } 
-            }  
-    }
-    int status;
-    while ((pid = wait(&status)) > 0) {
-        if (WIFEXITED(status)) {
-            int line_count = WEXITSTATUS(status);
-            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", pid, line_count);
-        }
-    }
+                    openFile(dir_index->d_name, director_out, director_in, caracter);
+                }  
+                exit(nr_linii); 
+            } else {
+                waitpid(pid, &status, 0);
+                if (WIFEXITED(status)) {
+                    int nr_linii = WEXITSTATUS(status); // pentru fiecare proces se extrage nr de linii sris
+                    printf("S-a încheiat procesul cu pid-ul %d și nr linii scrise: %d\n", pid, nr_linii);
+                }
+            }
+        }  
+    } 
     closedir(dir);
 }
+
 
 int main(int argc, char *argv[]) {
 
@@ -451,6 +448,8 @@ int main(int argc, char *argv[]) {
     }
 
     getFiles(director_in,director_out,caracter);
-    
+       
+
     return 0;
 }
+

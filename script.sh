@@ -27,4 +27,4 @@ while read -r line; do
 
 done
 
-echo "$count"
+exit $count
